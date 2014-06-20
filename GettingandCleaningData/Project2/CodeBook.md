@@ -1,4 +1,5 @@
 Please review this docuemnt using the "Code" button instead of the "Preview" button.
+
 The measurements used for "mean" and "std" per value in features.txt are listed below.  
 The leading number shows the column in the original file - when subsetting the merged file we added 2 columns to the beginning of the file (Subject ID and Activity ID).  So where subsetting the data, add 2 to each column number shown below.
 
