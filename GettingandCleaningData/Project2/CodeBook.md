@@ -1,13 +1,15 @@
-The measurements used for "mean" and "std" per value in features.txt are listed below.  The leading number shows the column in the original file - when subsetting the merged file we added 2 columns to the beginning of the file (Subject ID and Activity ID).  So where subsetting the data, add 2 to each column number shown below.
+Please review this docuemnt using the "Code" button instead of the "Preview" button.
+The measurements used for "mean" and "std" per value in features.txt are listed below.  
+The leading number shows the column in the original file - when subsetting the merged file we added 2 columns to the beginning of the file (Subject ID and Activity ID).  So where subsetting the data, add 2 to each column number shown below.
 
 These fields were selected by manual inspection.  Columns with "meanFreq" and "gravityMean" were not included.
 
 1 tBodyAcc-mean()-X
 2 tBodyAcc-mean()-Y
-3 tBodyAcc-mean()-Z
-4 tBodyAcc-std()-X
-5 tBodyAcc-std()-Y
-6 tBodyAcc-std()-Z
+3 tBodyAcc-mean()-Z 
+4 tBodyAcc-std()-X 
+5 tBodyAcc-std()-Y 
+6 tBodyAcc-std()-Z 
 41 tGravityAcc-mean()-X
 42 tGravityAcc-mean()-Y
 43 tGravityAcc-mean()-Z
