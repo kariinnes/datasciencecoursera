@@ -1,11 +1,12 @@
 library(shiny)
 require(ggplot2)
-require(randomForest)
+library(randomForest)
 
-limitedDiamonds <- diamonds[,c(1:4,7)]
+#limitedDiamonds <- diamonds[c(1:3000, 10000:12500, 18000:20000, 32000:34500,46500:49000) ,c(1:4,7)]
+limitedDiamonds <- diamonds[c(1:3000, 15000:18500, 33000:37000) ,c(1:4,7)]
 
 set.seed(556)   
-modelFit <<- randomForest(price ~ ., data=limitedDiamonds, method = 'rpart')
+modelFit <- randomForest(price ~ ., data=limitedDiamonds, ntrees=20)
 
 inputData <- limitedDiamonds[1,]
 
