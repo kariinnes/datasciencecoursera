@@ -1,0 +1,207 @@
+---
+title: "Data Analysis and Statistical Inference - Peer Assessed Project"
+output:
+  html_document:
+    theme: cerulean
+  pdf_document: default
+  word_document: default
+date: "October 20, 2014"
+---
+
+##Introduction
+
+My research questions is:
+
+**Is the percentage of students in middle/high school who are overweight or obese different that the percentage of elementary age students who are overweight or obese?** 
+
+Obesity has reached epidemic proportions in New York State and across the nation. The solution to this silent killer requires changes in behavior, such as physical activity and healthy eating.  The answer to the above research question could allow school administators to target limited money and resources for nutrition and exercise to the student population in most need.
+
+##Data
+
+**Data Collection**
+
+Counts for each school in a public school district in New York State, exclusive of NYC, were accumulated into weight categories based on BMI-for-age percentiles: underweight (less than 5th), healthy weight (5th through 49th), healthy weight (50th through 84th), overweight (85th through 94th) and obese (95th and greater).  Percentages were calculated by dividing the number of reported students in a weight status category by the total number of students with weight status category information.
+
+A 50% sample of public school districts outside NYC is required to submit data to NYSDOH (NY State Dept of Health) each year in the selected grades. The grades selected for reporting are Pre-K, K, 2nd, 4th, 7th, 10th. 
+ 
+The dataset includes separate estimates of the percent of students who are overweight or obese for all reportable grades within the county and/or region and by grade groups (elementary and middle/high). The rates of overweight and obesity reported are percentages based on counts of students.
+
+**For each school district in New York state** (excluding those in NY City) there is one row of data for elementary schools, one row for middle/high schools and one row with the totals. These are the **cases**.
+
+The units of observation are percentages and counts.  The observation are for:
+
+-  number of overweight students,
+-  percent of overweight students,
+-  number of obese students, 
+-  percent of obese students,
+-  number of overweight/obese students and
+-  percent of overweight/obese students
+
+The variables in this dataset are shown below.
+```{r}
+download.file(url = "https://health.data.ny.gov/api/views/es3k-2aus/rows.csv",  destfile = "./weightdata.csv", method = "curl")
+weightData <- read.csv("./weightdata.csv", colClasses = "character")
+
+weightData <- weightData[complete.cases(weightData), ]
+
+names(weightData)
+```
+
+The variables for use in the analysis are:
+
+PCT.OVERWEIGHT.OR.OBESE:    
+Numerical variable showing the percentage of students (by grade level and in total) for each school district in New York State   
+
+GRADE.LEVEL:   
+Categlorical variable with three possible values DISTRICT, MIDDLE/HIGH, ELEMENTARY.  We will ignore the DISTRICT results for the purposes of this  data analysis.     
+
+```{r}
+#Subset data for variables of interest only
+weightData$Pct_OverweightObese <- as.numeric(sub("%", "", weightData$PCT.OVERWEIGHT.OR.OBESE))
+
+subset_weightData <- data.frame(middleHigh = numeric(745), elementary = numeric(745))
+
+subset_weightData <- subset(weightData, GRADE.LEVEL == "MIDDLE/HIGH" | GRADE.LEVEL == "ELEMENTARY", select = c(GRADE.LEVEL, Pct_OverweightObese))
+
+subset_weightData <- subset_weightData[complete.cases(subset_weightData), ]
+subset_weightData <- droplevels(subset_weightData)
+
+head(subset_weightData)
+```
+
+The study is observational.   There was no control or randomization in the collection of the data that would be required for an experimental study.  Therefore these results cannot be used to establish a causal link.
+
+The population of interest are school aged-children attending school in New York State but excludes students in the five boroughs of New York City.  Caution should be used before generalizing this data to a larger population (e.g. all school aged children in the US) because parents/guardians of students in NY could request that their child's weight status data be excluded from this data collection.  This could mean that the parents/guardians of obese/overweight children are more likely to request that their child's data be excluded which could understate the data results.
+
+In order to generalize to the whole population you need to have a sample that is random and representative.  For purposes of this data analysis project, we will assume that the data is random since there is no evidence to indicate otherwise.
+
+##Exploratory Data Analysis
+
+####Histogram of percentage overweight/obese students
+```{r}
+hist(subset_weightData$Pct_OverweightObese, xlab = "Percent Overweight/Obese")
+```
+
+The histogram for percentage overweight/obese appears to be nearly normal with a unimodal distribution without significant skew in either direction.  The mean appears to be between 30% and 40%.
+
+####Boxplot of percentages overweight/obese for each grade level
+```{r}
+boxplot(subset_weightData$Pct_OverweightObese ~ subset_weightData$GRADE.LEVEL, col = "blue")
+```
+
+The boxplot of the percentage overweight/obese shows the median is higher for middle/high school age students.  Also, the IQR for the middle/high school age students is higher and the data is more variable for this category of students.  However, the elementary school age students have a more significant outlier in the data showing a district with 100% of its elementary students being overweight/obese.  Looking at the data, INDIAN LAKE CENTRAL SCHOOL in Hamilton NY, has PCT.OVERWEIGHT.OR.OBESE = 100% for its elementary school.  This data should be verified.
+
+The data, at first glance, seems to support that the percentage of middle/high school age students is not equal to the percentage of overweight/obese elementary students.
+
+```{r echo=FALSE, fig.keep='none', results='hide'}
+library(ggplot2)
+plot <- qplot(Pct_OverweightObese, data = subset_weightData, binwidth = 10, facets = . ~ GRADE.LEVEL, color = GRADE.LEVEL, xlab = "Percent Overweight/Obese")
+plot
+```
+
+**Number of observations**
+```{r}
+Middle_High_Observations <- length(which(subset_weightData$GRADE.LEVEL =="MIDDLE/HIGH"))
+
+Elementary_Observations <- length(which(subset_weightData$GRADE.LEVEL =="ELEMENTARY"))
+```
+
+There are `r length(which(subset_weightData$GRADE.LEVEL =="MIDDLE/HIGH"))` observations of middle/high school aged students. 
+
+There are `r length(which(subset_weightData$GRADE.LEVEL =="ELEMENTARY"))` observations of elementary school aged students. 
+
+**Mean for each grade level**
+```{r}
+mean_byLevel <- aggregate(Pct_OverweightObese ~ GRADE.LEVEL, subset_weightData, FUN = "mean")
+mean_byLevel
+```
+
+**Standard deviation for each grade level**
+```{r}
+sd_byLevel <- aggregate(Pct_OverweightObese ~ GRADE.LEVEL, subset_weightData, FUN = "sd")
+sd_byLevel
+```
+
+##Inference
+
+The null hypothesis is that the percentage of overweight/obese middle/high students is no different than the percentage of overweight/obese students.  The alternative hypothesis is that there is a difference in these two percentages.
+
+#####Ho: meanMiddleHigh = meanElementary 
+
+#####Ha: meanMiddleHigh <> meanElementary
+
+First we need to check the conditions for the central limit theorem (CLT)  
+
+**Independence** - We need to verify independence both within and between 
+the groups.  
+
+```
+Within the groups, sampled observations must be independent.  The data in the dataset is a sample of public school districts outside NYC for certain grades.  It is unclear whether this sample is "random" but for the purpose of this project, the sample will be assumed to be randon.  As an additional check, the population is less than 10% of all school aged students in the US.   
+
+Between groups, the two groups must be independent of each other.  The data is non-paired because the same student cannot be in a middle/high school age group and an elementary school age group.
+```
+
+**Sample size/skew** - Since the the number of observations *for each student population* is greater than 30, the sampling distribution of the percentage of overweight/obese students will be nearly normal
+
+The data is nearly normal (as suspected by our review of the histogram) based upon successfully passing the conditions needed for the CLT so we will proceed with determining a 95% confidence interval and perform a hypothesis test under the normal distribution.
+
+####95% Confidence Interval
+```{r}
+n1 <- Middle_High_Observations
+n2 <- Elementary_Observations
+sd1 <- sd_byLevel[2,2]
+mean1 <- mean_byLevel[2,2]
+sd2 <- sd_byLevel[1,2]
+mean2 <- mean_byLevel[1,2]
+#average of two variances
+SE <- sqrt((sd1^2/n1) + (sd2^2/n2))
+mean_diff <- mean1 - mean2
+
+mean_diff + c(-1, 1) * qnorm(.975) * SE
+```
+
+The 95% confidence interval does not contain 0.  We would therefore fail to accept the null hypothesis that the mean percentage of overweight/obese middle and high schoool age students is the same as the mean percentage of overweight/obese elementary age students.  
+
+####Hypothesis Test
+```{r, fig.show='hide'}
+source("http://bit.ly/dasi_inference")
+inference(y = subset_weightData$Pct_OverweightObese, x = subset_weightData$GRADE.LEVEL, est = "mean", type = "ht", null = 0, alternative = "twosided", method = "theoretical")
+```
+
+```{r}
+#Verify the test statistic and p-value manually
+test_statistic <- mean_diff / SE
+
+p_value <- 2 * pnorm(test_statistic, lower.tail=FALSE)
+```
+
+The calculated p-value equals 0 and is lower than our significance level of 5%. We fail to accept the null hypothesis and conclude that the data provides convincing evidence for the alternative hypothesis.  Namely, there is a difference in the average percentage of middle/high school students who are obese/overweight when compared to elementary school students.  
+
+The result of the hypothesis testing is consistent with the outcome of the confidence interval.  In both cases, we concludes that there is a difference in the average percentages.  
+
+##Conclusion
+Based on my inital review of the exploratory graphs, my initial research question was whether the percentage of middle/high school students who were overweight/obese was **greater** than the percentage of overweight/obese elementary students.  However, in complying with good scientific research, I decided to test whether the two percentages were unequal. My expectation was that the alternative hypothesis that they were unequal would be supported by the tests.  Even with this expectation, I was ultimately surprised that the resulting p-value in the inference test was essentially 0. 
+    
+The final conclusion based on this dataset and analysis is that if there is indeed no difference between the average percent of obese/overweight students, there is an almost 0% chance of obtaining random samples of 1052 elementary and 1004 middle/high school students where the average for middle/high school students is at least 3.5% higher than that of elementary age students. 
+
+Future research could include experiments where middle/high school students are separated into "treatment" and "control" groups to determine how eating habits or exercise contribute to the overweight/obese epidemic.  For example, an experiment where the "control" group eats normally and the "treatment" group is given a menu to follow.  Or the "control" group continues their normal exercise activities and the treatment group must walk 5 days per week.  If these experiments showed, for example, a casual relationship between eating and being overweight/obese in middle/high school (and no casual relationship between exercising and being overweight/obese in middle/high school), the limited resources in public schools could be directed toward more healthy eating habits for middle/high school students.  
+
+---
+
+##Reference
+
+Data Citation
+
+New York State Department of Health (2013),  "Student Weight Status Category Reporting Results: Beginning 2010 " ,  https://health.data.ny.gov/Health/Student-Weight-Status-Category-Reporting-Results-B/es3k-2aus
+
+Data file is located at https://health.data.ny.gov/api/views/es3k-2aus/rows.csv  
+
+---
+
+##Appendix
+
+```{r echo=FALSE}
+head(subset_weightData, 35)
+```
+
+

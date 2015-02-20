@@ -1,0 +1,165 @@
+---
+title: "Relationship between MPG and Transmission"
+output: word_document
+date: "October 9, 2014"
+---
+
+###Executive Summary
+This analysis will explore the relationship between between a set of variables (predictors) and miles per gallon (MPG) (outcome) by looking at a data set of a collection of cars.  Of particular interested is whether an automatic or manual transmission is better for MPG.  The analysis will also quantify the MPG difference between automatic and manual transmission cars.
+
+The analysis detailed in this paper performed a backward stepwise model selection, eliminating one variable from the linear model (based on the highest p-value) until all remaining models are statistically significant.  A 95% confidence interval is run on the final model and the residuals are evaluated.
+ 
+###Exploratory Data
+The variables in the mtcars dataset are:  
+-        mpg: 	 Miles/(US) gallon  
+-	 cyl: 	 Number of cylinders  
+-	 disp: 	 Displacement (cu.in.)  
+-	 hp: 	 Gross horsepower  
+-	 drat: 	 Rear axle ratio  
+-	 wt: 	 Weight (lb/1000)  
+-	 qsec: 	 1/4 mile time  
+-	 vs: 	 V/S  (engine shape)
+-	 am: 	 Transmission (0 = automatic, 1 = manual)  
+-	 gear: 	 Number of forward gears  
+-	 carb: 	 Number of carburetors  
+
+Mean MPG by transmission type
+```{r echo=FALSE}
+aggregate(mpg ~ am, mtcars, FUN = "mean")
+````
+The mean mpg for manual cars is higher than the mean mpg for automatic cars. This preliminary check indicates that manual cars get better miles per gallon.
+
+Sample of the data
+```{r echo=FALSE, results='asis'}
+library(pander)
+panderOptions("table.split.table", Inf)
+pander(head(mtcars))
+#mpg is column 1 and transmission(am) is column 9 (0 automatic, 1 manual)
+```  
+Based on a review of the boxplot, mpg appears to be higher for manual transmission cars than for automatic transmission cars.  The graphs for the explatory analysis can be found in the Appendix.
+
+We reviewed the pairwise plot of all variables and see a strong linear relationship between mpg and each of disp, hp, wt.  However, disp and hp also appear to have a strong linear with wt so we would not expect to see all of these variables in the final model.
+
+###Multiple Linear Regression Model
+In order to find the best predictors for MPG, we will start with a model containing all predictor variables and cycle through the variables eliminating those which add no value to the linear model.  We want a model where all remaining predictors are significant.  We will do this by eliminating one predictor at a time (based on the highest p-value for each variable).  The p-value will be compared to 5% to determine whether it is statistically significant.
+
+####Fit regression line for mpg using all variables as predictors
+```{r echo=FALSE}
+fit_all <- lm(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb, data=mtcars)
+summary(fit_all)$coef
+
+max_pvalue <- max(summary(fit_all)$coef[,4])
+```
+
+We see that cyl has the since highest p-value of `r max_pvalue` so it will be removed.
+```{r echo=FALSE} 
+fit_nocyl <- lm(mpg ~ disp + hp + drat + wt + qsec + vs + am + gear + carb, data=mtcars)
+#summary(fit_nocyl)$coef
+
+max_pvalue <- max(summary(fit_nocyl)$coef[2:10,4])
+```
+
+Second, running a model without cyl, we find that vs the highest p-value (`r max_pvalue`) so it is removed from the model.
+```{r echo=FALSE}
+fit_novs <- lm(mpg ~ disp + hp + drat + wt + qsec + am + gear + carb, data=mtcars)
+#summary(fit_novs)$coef
+
+max_pvalue <- max(summary(fit_novs)$coef[2:9,4])
+```
+
+Third, from the model which excludes cyl and vs, we find carb has the highest p-value of `r max_pvalue`.
+```{r echo=FALSE}
+fit_nocarb <- lm(mpg ~ disp + hp + drat + wt + qsec + am + gear, data=mtcars)
+#summary(fit_nocarb)$coef
+
+max_pvalue <- max(summary(fit_nocarb)$coef[2:8,4])
+```
+
+Fourth, from the model which excludes cyl, vs and carb, we remove gear since it has the highest p-value (`r max_pvalue`).
+```{r echo=FALSE}
+fit_nogear <- lm(mpg ~ disp + hp + drat + wt + qsec + am, data=mtcars)
+#summary(fit_nogear)$coef
+
+max_pvalue <- max(summary(fit_nogear)$coef[2:7,4])
+```
+
+Fifth, from the model which excludes cyl, vs, carb and gear, we remove drat since it has the highest p-value (`r max_pvalue`).
+```{r echo=FALSE}
+fit_nodrat <- lm(mpg ~ disp + hp + wt + qsec + am, data=mtcars)
+#summary(fit_nodrat)$coef
+
+max_pvalue <- max(summary(fit_nodrat)$coef[2:6,4])
+```
+
+Sixth, from the model which excludes cyl, vs, carb, gear and drat, we remove disp since it has the highest p-value (`r max_pvalue`).
+```{r echo=FALSE}
+fit_nodisp <- lm(mpg ~ hp + wt + qsec + am, data=mtcars)
+#summary(fit_nodisp)$coef
+
+max_pvalue <- max(summary(fit_nodisp)$coef[2:5,4])
+```
+
+Seventh, from the model which excludes cyl, vs, carb, gear, drat and disp, we remove hp since it has the highest p-value (`r max_pvalue`).
+```{r}
+fit_nohp <- lm(mpg ~ wt + qsec + am, data=mtcars)
+summary(fit_nohp)$coef
+```
+
+```{r}
+max_pvalue <- max(summary(fit_nohp)$coef[2:4,4])
+max_pvalue
+```
+
+Finally we see that the remaining p-values are all less than 0.05 and therefore statistically significant.  At this stage, we cease removing variables from the linear model.  Our final model includes transmission, weight and 1/4 mile time as predictors for miles per gallon.
+
+The linear model is:
+
+mpg(hat) = `r summary(fit_nohp)$coef[1,1]` + `r summary(fit_nohp)$coef[2,1]` * weight + `r summary(fit_nohp)$coef[3,1]` * 1/4 mile time + `r summary(fit_nohp)$coef[4,1]` * tranmission.
+
+```{r}
+low <- summary(fit_nohp)$coef[4,1] - abs(qt(0.025, df = 28)) * summary(fit_nohp)$coef[4,4] 
+high <- summary(fit_nohp)$coef[4,1] + abs(qt(0.025, df = 28)) * summary(fit_nohp)$coef[4,4]
+``` 
+
+###Interpretation of Results
+All else held constant, the model predicts that manual transmission cars get `r round(summary(fit_nohp)$coef[4,1], digits=3)` mpg more than an automatic car, on average.  We are 95% confident that the model predicts that the mpg for manual cars is `r low` points to `r high` higher than for automatic transmission cars. 
+
+```{r echo=FALSE}
+fit <- lm(mpg ~ am, data = mtcars)
+```
+
+About `r summary(fit)$r.squared` of the variability in mpg is explained by transmission alone and `r summary(fit_nohp)$r.squared` is explained by a combination of transmission, weight and 1/4 mile time.    
+
+###Diagnostics of the Residuals
+
+We expect the residuals from our final linear model to be nearly normal with a mean of 0 and to have constant variance.  The mean of the residuals is `r mean(fit_nohp$residuals)`.  The residual plot (in the Appendix) shows that the residuals appear to be randomly disributed around 0.  We check normality using the normal probability plot (in the Appendix).  This plot shows a nearly normal distribution.  
+
+~~~  
+
+##Appendix
+
+####Histogram
+```{r echo=FALSE}
+hist(mtcars$mpg)
+```
+
+####Boxplot
+```{r, echo=FALSE}
+boxplot(mpg ~ am, data = mtcars, xlab = 'Transmission (0:automatic and 1:manual)', ylab = 'Miles Per Gallon')
+```
+
+####Pairs Plot
+```{r, echo=FALSE}
+pairs(mtcars)
+```
+
+####Residuals Plots 
+```{r echo=FALSE}
+plot(fit_nohp$residuals)
+```
+
+####Normal Probability Plot of the Residuals
+```{r echo=FALSE}
+qqnorm(fit_nohp$residuals)
+qqline(fit_nohp$residuals)
+```

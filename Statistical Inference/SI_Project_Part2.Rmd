@@ -1,0 +1,163 @@
+---
+title: "Statistical Inference - Project Part 2"
+author: "Kari Innes"
+date: "September 15, 2014"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    theme: cerulean
+---
+###1. Load the ToothGrowth data and perform some basic exploratory data analyses 
+```{r,echo=FALSE}
+data(ToothGrowth)
+str(ToothGrowth)
+head(ToothGrowth)
+
+library(ggplot2)
+```
+
+Histogram of tooth length
+```{r,echo=FALSE}
+hist(ToothGrowth$len)
+```
+
+Please see **Appendix** for additional exploratory graphs.
+
+###2. Provide a basic summary of the data
+```{r,echo=FALSE}
+summary(ToothGrowth$len)
+```
+
+Calculate mean length and standard deviation for each supp
+```{r,echo=FALSE}
+mean_supp <- aggregate(len ~ supp, ToothGrowth, FUN = "mean")
+sd_supp <- aggregate(len ~ supp, ToothGrowth, FUN = "sd")
+mean_supp
+sd_supp
+```
+
+Calculate mean length and standard deviation for each dose
+```{r,echo=FALSE}
+mean_dose<- aggregate(len ~ dose, ToothGrowth, FUN = "mean")
+sd_dose <- aggregate(len ~ dose, ToothGrowth, FUN = "sd")
+mean_dose
+sd_dose
+```
+
+###3. Use confidence intervals and hypothesis tests to compare tooth growth by supp and dose. 
+
+####Compare tooth growth by supplement
+Null hypotheses: There is no difference between tooth growth under the two supplements
+**H0:  Mu(OJ) = Mu(VC)**  
+**Ha:  Mu(VC) <> Mu(OJ)**
+```{r,echo=FALSE}
+t.test(len ~ I(relevel(supp, 2)), paired = FALSE, conf.level = 0.975, data = ToothGrowth)$conf
+```
+
+####Compare tooth growth by dose
+Null hypotheses:  There is no difference between tooth growth under the **doses 0.5 and 1.0**  
+**Ho:  Mu(0.5) = Mu(1.0))**  
+**Ha:  Mu(1.0) > Mu(0.5)**
+```{r,echo=FALSE}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+ToothGrowth51 <- subset(ToothGrowth, dose %in% c(0.5, 1.0))
+t.test(len ~ I(relevel(dose, 2)), paired = FALSE, data = ToothGrowth51)$conf
+```
+
+Null hypotheses:  There is no difference between tooth growth under the **doses 0.5 and 2.0  **
+**Ho:  Mu(0.5) = Mu(2.0))**  
+**Ha:  Mu(2.0) > Mu(0.5)**
+```{r,echo=FALSE}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+ToothGrowth51 <- subset(ToothGrowth, dose %in% c(0.5, 2.0))
+t.test(len ~ I(relevel(dose, 2)), paired = FALSE, data = ToothGrowth51)$conf
+```
+
+Null hypotheses:  There is no difference between tooth growth under the **doses 1.0 and 2.0**  
+**Ho:  Mu(1.0) = Mu(2.0))**  
+**Ha:  Mu(2.0) > Mu(1.0)**
+```{r,echo=FALSE}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+ToothGrowth51 <- subset(ToothGrowth, dose %in% c(1.0, 2.0))
+t.test(len ~ I(relevel(dose, 2)), paired = FALSE, data = ToothGrowth51)$conf
+```
+
+###4. State your conclusions and the assumptions needed for your conclusions.
+
+**Assumptions:**
+
+1.  The different doses and supplements were given to different guinea pigs (and not the same guinea pigs at different time periods).  Therefore I did not use a paired test.
+
+2.  The tooth growth data is assumed to be iid normal.  This assumption is supported by the histogram which shows that the data is roughly symmetric and mound shaped and is not skewed.
+
+3. The alternate hypothesis for the supplement assume a two sided t-test, simply testing that the supplements are not equal.  The alternate hypotheses for the dose tests assume a one-sided t-test, testing that the higher dose results in longer length (as suspected by looking at the exploratory graphs).  
+
+**Conclusions:**
+
+1. Fail to reject the null hypothesis that the means of the different supplements are equal.  The confidence interval for the associated t-test contains mu = 0.
+
+2. Reject the null hypothesis for each of the tests of various doses.  None of the tests (0.5 vs. 1.0, 0.5 vs. 2.0, 1.0 vs. 2.0) results in a 95% confidence interval that includes mu = 0.
+
+
+-------
+
+Appendix
+=====================================
+
+Plot tooth length by both dose and supplement
+```{r,echo=FALSE}
+require(graphics)
+coplot(len ~ dose | supp, data = ToothGrowth, xlab = "Dose", ylab = "Tooth Length", col = "blue", panel = panel.smooth)
+```
+
+Plot tooth length by dose - color coded by supplement
+```{r,echo=FALSE}
+library(ggplot2)
+qplot(ToothGrowth$supp, ToothGrowth$len, color = ToothGrowth$dose)
+```
+
+Plot tooth length by supplement - color coded by dose
+```{r,echo=FALSE}
+qplot(ToothGrowth$dose, ToothGrowth$len, col = ToothGrowth$supp)
+```
+
+##Code
+*Load Data*  
+data(ToothGrowth)
+str(ToothGrowth)
+head(ToothGrowth)
+
+library(ggplot2)
+
+*Histogram*  
+hist(ToothGrowth$len)
+
+*Summary of Data*  
+summary(ToothGrowth$len)
+
+*Mean and sd*   
+mean_supp <- aggregate(len ~ supp, ToothGrowth, FUN = "mean")
+sd_supp <- aggregate(len ~ supp, ToothGrowth, FUN = "sd")
+mean_supp
+sd_supp
+
+mean_dose<- aggregate(len ~ dose, ToothGrowth, FUN = "mean")
+sd_dose <- aggregate(len ~ dose, ToothGrowth, FUN = "sd")
+mean_dose
+sd_dose
+
+*T Tests*  
+t.test(len ~ I(relevel(supp, 2)), paired = FALSE, conf.level = 0.975, data = ToothGrowth)$conf
+
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+ToothGrowth51 <- subset(ToothGrowth, dose %in% c(0.5, 1.0))
+t.test(len ~ I(relevel(dose, 2)), paired = FALSE, data = ToothGrowth51)$conf
+
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+ToothGrowth51 <- subset(ToothGrowth, dose %in% c(0.5, 2.0))
+t.test(len ~ I(relevel(dose, 2)), paired = FALSE, data = ToothGrowth51)$conf
+
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+ToothGrowth51 <- subset(ToothGrowth, dose %in% c(1.0, 2.0))
+t.test(len ~ I(relevel(dose, 2)), paired = FALSE, data = ToothGrowth51)$conf

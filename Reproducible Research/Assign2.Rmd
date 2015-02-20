@@ -1,0 +1,181 @@
+---
+title: 'Reproducible Research: Analysis of the NOAA Storm Data'
+
+date: "July 25, 2014"
+output:
+  html_document:
+    theme: cerulean
+    highlight: tango
+
+---
+Synopsis:  We have analyzed data from the NOAA Storm Database used to track storm events in the US from January 1950 to April 2014.  The questions we want to answer are (1) which types of events are most harmful with respect to population health and (2) which types of events have the greatest economic consequences.  We used the injuries and fatalities data in the NOAA database to determine the most harmful events for human health.  We used the property and crop damage estimates to determine the events with the greatest economic consequences.  Our findings are that Tornados are most harmful to human health and that Hurricanes/Typhoons are the most devastating from an economic perspective.  Note:  Without the adjustment shown for the Flood outlier (as documented below), Floods are the most devastating economic event.
+
+###Data Processing
+
+Read the zip from from the NOAA website and read the data using read.csv
+```{r data}
+
+stormdata <- read.csv("repdata_data_StormData.csv.bz2", header = TRUE)
+
+str(stormdata)
+
+```
+
+From the NOAA Storm Events Database, not all events were tracked until 1996.  We removed observations prior to 1996 to make the analysis consistent between the various events.  See  http://www.ncdc.noaa.gov/stormevents/details.jsp for a summary of the data discrepancies pre and post 1996.
+
+```{r timedData}
+timeAdjusted_data <- subset(stormdata, as.Date(stormdata$BGN_DATE, format = "%m/%d/%Y") >= "1996-01-01")  
+```
+
+####Subset data to include columns for fatalities, injuries and property damage for each event type.  The columns retained are:
+
+    EVTYPE - event type (e.g. tornado, flood, etc.)
+    FATALITIES - number of fatalities
+    INJURIES - number of injuries
+    PROPDMG - property damage 
+    PROPDMGEXP - magnitude of property damage (e.g. thousands, millions)
+    CROPDMG - crop damage 
+    CROPDMGEXP - magnitude of crop damage (e.g. thousands, millions)
+
+```{r subsetData}
+subData <- timeAdjusted_data[,colnames(timeAdjusted_data) %in% c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG",  "CROPDMGEXP")] 
+```
+
+Note:  There are outliers in the data, especially with regard to the damages caused by floods.  The below subset of the data shows that in particular the Flood in row 605953 has property damage of $115 billion. However, an internet search found this article http://www.cityofnapa.org/index.php?option=com_content&task=view&id=907&Itemid=30 which shows $115 million in damage.  This row of data was adjusted to millions for this analysis.
+
+```{r billionsData}
+
+billionData <- subData[(subData$CROPDMGEXP %in% c("B", "b") | subData$PROPDMGEXP %in% c("B", "b")), ]
+
+subData[(subData$PROPDMG == 115 & subData$PROPDMGEXP == "B"), 5] <- "M"
+
+```
+
+We performed an initial analysis by finding the total fatalities/injuries and the total property/crop damage for each event type.  This initial analysis was to find the top 50 events.  Our goal was to collapse the 200+ events into the 48 categories as identified by NOAA.  For the top 50 events (done separately for the fatality/injury vs. property/crop damage) the following categories were not collapsed as it is unclear to which category they should be collapsed: LANDSLIDE, STORM SURGE, SNOW SQUALL and DRY MICROBURST.  Hoevwer, each of these excluded events have fewer than 100 injuries/fatalities so did not impact the final result.  All of the top 50 property/crop damage events fit into one of the 48 categories.
+
+Our analysis showed that these were the event labels that needed to be cleaned up.
+
+```{r adjustEvents}
+subData$EVTYPE <- gsub("^thunderstorm.*|TSTM.*", "Thunderstorm", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub("^flash flood.*", "Flash Flood", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub(".*flood.*|.*FLD", "Flood", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub("Rip Current.*", "Rip Current", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub("Wild.*", "WildFire", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub(".*Fog.*", "Dense Fog", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub("glaze|.*ice.*", "Ice Storm", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub("extreme.*", "Extreme Cold/Wind Chill", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub("winter weather.*|wintry.*", "Winter Weather", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub(".*Surf.*", "High Surf", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub("hurricane.*|typhoon.*", "Hurricane/Typhoon", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub(".*frost|.*freeze", "Frost/Freeze", subData$EVTYPE, ignore.case = TRUE)
+subData$EVTYPE <- gsub(".*wind.*", "Strong Wind", subData$EVTYPE, ignore.case = TRUE)
+
+###Ensure all event types are lower case with capital first letter
+lowerCap <- function(x) {
+        s <- strsplit(x, " ")[[1]]
+        paste(toupper(substring(s, 1,1)), tolower(substring(s, 2)),
+              sep="", collapse=" ")
+}
+
+subData$EVTYPE <- sapply(subData$EVTYPE, lowerCap)
+```
+
+We adjusted the crop and property damage estimates to include exponential factors found in *EXP variables (e.g. thousands, millions).  After making this adjustment we deleted *EXP variables from the data.
+
+```{r exponentData}
+levels(subData$CROPDMGEXP)
+levels(subData$PROPDMGEXP)
+
+subData$CROPDMGEXP <- gsub("K|k", 1000, subData$CROPDMGEXP)
+subData$CROPDMGEXP <- gsub("M|m", 1000000, subData$CROPDMGEXP)
+subData$CROPDMGEXP <- gsub("B|b", 1000000000, subData$CROPDMGEXP)
+
+subData$CROPDMG <- subData$CROPDMG * as.numeric(subData$CROPDMGEXP)
+subData$CROPDMGEXP <- NULL
+
+subData$PROPDMGEXP <- gsub("H|h", 100, subData$PROPDMGEXP)
+subData$PROPDMGEXP <- gsub("K|k", 1000, subData$PROPDMGEXP)
+subData$PROPDMGEXP <- gsub("M|m", 1000000, subData$PROPDMGEXP)
+subData$PROPDMGEXP <- gsub("B|b", 1000000000, subData$PROPDMGEXP)
+
+subData$PROPDMG <- subData$PROPDMG * as.numeric(subData$PROPDMGEXP)
+subData$PROPDMGEXP <- NULL
+```
+
+###Results
+####Sum injuries and fatalities to find those events with the largest population health impact
+
+We summed injuries and fatalities by event to find those with the largest impact to human health.
+
+```{r sumHealthData}
+popHealth_data <- aggregate(FATALITIES + INJURIES ~ EVTYPE, subData, FUN = "sum")
+
+colnames(popHealth_data) <- c("eventType", "incidentNumber")
+```
+
+We removed rows with no injury or fatality incidents.  This is for the injury/fatality analysis only.  Rows to retain for the damages analysis is done separately
+
+```{r noHealthRows}
+popHealth_data <- popHealth_data[popHealth_data$incidentNumber > 0, ]
+
+popHealth_data_ordered <- popHealth_data[order(-popHealth_data[,2]),]
+
+maxHealthEvent <- popHealth_data_ordered[1,1]
+
+rownames(popHealth_data_ordered) <- NULL
+```
+
+####Plot 10 Most Harmful Events with Respect to Population Health
+
+Plot of the first 10 rows of the data sorted (in descending order) of injuries + fatalities
+
+```{r plotHealth}
+library(ggplot2)
+plot_health <- ggplot(popHealth_data_ordered[1:10,], aes(eventType, incidentNumber, fill=eventType))     
+plot_health + geom_bar(stat="identity") +
+labs(title = "Top 10 Most Harmful Events with Respect to Population Health") +
+xlab("Events") +
+ylab("Number of injuries and fatalities")  +
+theme(axis.text.x=element_text(angle=-90)) 
+```
+
+The event with the largest impact to population health is `r maxHealthEvent`.
+
+####Sum property and crop damages to find the events have the greatest economic consequences 
+
+We summed crop and property damage (after adjusting for their respective exponential factors) by event to find those with the largest economic impact.
+
+```{r sumDamage}
+propDmg_data <- aggregate(PROPDMG + CROPDMG ~ EVTYPE, subData, FUN = "sum")
+
+colnames(propDmg_data) <- c("eventType", "totalDamages")
+```
+
+We removed rows with no property or crop damage.  This is for the property and crop damage analysis only.  Rows to retain for injuries and fatalities analysis is done separately.
+
+````{r noDamageRows}
+propDmg_data <- propDmg_data[propDmg_data$totalDamages > 0, ]
+
+propDmg_data_ordered <- propDmg_data[order(-propDmg_data[,2]),]
+
+propDmg_data_ordered$totalDamages <- propDmg_data_ordered$totalDamages / 1000000
+
+maxDamage <- propDmg_data_ordered[1,1]
+
+rownames(propDmg_data_ordered) <- NULL
+```
+
+####Plot 10 Events with the Greatest Economic Consequences
+
+Plot of the first 10 rows of the data sorted (in descending order) of total damages
+
+```{r plotDamage}
+plot_damages <- ggplot(propDmg_data_ordered[1:10,] , aes(eventType, totalDamages, fill=eventType))     
+plot_damages + geom_bar(stat="identity") +
+        labs(title = "Top 10 Events with Greatest Economic Consequences") +
+        xlab("Events") +
+        ylab("Total Damage (in millions)")  +
+        theme(axis.text.x=element_text(angle=-90)) 
+```
+
+The event causing the most costly damages is `r maxDamage`.

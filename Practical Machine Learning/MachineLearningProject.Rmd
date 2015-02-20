@@ -1,0 +1,136 @@
+---
+title: "MachineLearningProject"
+date: "November 21, 2014"
+output: 
+   html_document:
+     theme: cerulean
+---
+##Question
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively.   Six participants were asked to perform barbell lifts 5 different ways: correctly (classe = A) and incorrectly (classe = B, C, D, E). 
+
+Using data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, I will build a machine learning algorithm to predict the activity quality from the activity monitors. 
+
+*Load the required packages needed for this analysis*
+```{r message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+```
+
+##Data
+*Download training data *
+```{r}
+file <-'http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'  #this is training file
+download.file(file, destfile="trainingData.csv")
+
+totalData <- read.csv("./trainingData.csv")
+```
+
+##Features
+What features from the raw data should be used for predicting the variable classe ?  We want features that capture/explain the data but we also need to balance information loss against summarization.  When in doubt, err on the side of more information and create more features.
+
+By looking at **summary(totalData)**  I removed the identifier variables (user name, timestamp) which will not be used as predictors and also removed all variables that have 19,216 rows of blank data or NAs.  Below is the limited data set which will be used to fit a model to predict classe.
+
+*Eliminate identifiers and variables that are largely NA or blank*
+```{r}
+completeData <- totalData[,c(8:11, 37:49, 60:68, 84:86, 102, 113:124, 140, 151:160)]
+```
+
+I separated the training data into 75% training and 25% validation so that I can test the algorithm against a preliminary test set before running it against the final test set, which can only be used once.
+
+*Partition the training data into training and validation sets*
+```{r}
+inTrain <- createDataPartition(y=completeData$classe,
+                              p=0.75, list=FALSE)
+training <- completeData[inTrain,]
+validation <- completeData[-inTrain,]
+dim(training)
+```
+
+##Algorithm
+
+I tried several methods to model the training set (all with cross validation) but found that the **rpart** method had very low accuracy and the **treebag (bagging)** method and **gbm (boosting with trees)** method had very good accurarcy but still lower than random forest.  Since it is the model with the best accuracy (although with a much longer processing time), I will use a random forest model with a 5-fold cross validation.   
+
+1. random forest - excellent accuracy 
+```{r}
+set.seed(556)
+
+modelFit <- train(training$classe ~ ., data=training, method="rf", trControl = trainControl(method = "cv", number = 5))
+modelFit
+
+finMod <- modelFit$finalModel
+finMod
+
+```
+
+2. rpart - runs very quickly but has poor accuracy 
+```{r}
+set.seed(557)
+
+modelFit2 <- train(training$classe ~ ., data=training, method="rpart", trControl = trainControl(method = "cv", number = 5))
+print(modelFit2$finalModel)
+
+modelFit2
+
+```
+
+3. treebag (bagging) - great accuracy but lower than random forest
+```{r}
+set.seed(558)
+
+library(ipred)
+library(plyr)
+
+modelFit3 <- train(training$classe ~ ., data=training, method="treebag", trControl = trainControl(method = "cv", number = 5))
+print(modelFit3$finalModel)
+
+modelFit3
+
+```
+
+4. gbm (boosting with trees) - good accuracy 
+```{r}
+set.seed(559)
+
+library(gbm)
+
+modelFit4 <- train(training$classe ~ ., data=training, method="gbm", verbose=FALSE, trControl = trainControl(method = "cv", number = 5))
+print(modelFit4$finalModel)
+
+modelFit4
+
+```
+
+*List of top 20 most important variables*
+```{r}
+varImp(modelFit, scale = FALSE) 
+```
+
+##Out of Sample Error
+The out of sample error is the error rate you get when you run your predicted model on a new data set.  Since I created a validation set, I can run our model against the validation set to check accuracy.  I can then use these result to further refine the model prior to running it **one time only** on the test dataset.
+
+*Run predcition on validation data and test accuracy*
+```{r}
+pred2 <- predict(modelFit, validation)
+confusionMatrix(pred2, validation$classe)
+```
+
+The accuracy of the model on the validation data set is 99.3%, with a          95% confidence interval of  (0.991, 0.995).  Therefore the out of sample error rate on the validation data set is about 0.7%.  With this error rate, no further refinements to the model are required.
+
+##Evalutation
+Run the final model, which has been developed against the training data set and tested against the validation data set.  The final model will be run **once** against the test data set.
+
+*Run prediction on test data and test accuracy*
+```{r}
+file2 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"  #this is testing file
+download.file(file2,destfile="testData.csv")
+
+testData <- read.csv("./testData.csv")
+
+testData <- testData[,c(8:11, 37:49, 60:68, 84:86, 102, 113:124, 140, 151:160)]
+#names(testData)
+
+pred3 <- predict(modelFit, testData)
+pred3
+```
+
+100% accuracy according to the submission portion of this project.
